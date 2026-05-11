@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+
+appsettings.Development.json
+appsettings.json
