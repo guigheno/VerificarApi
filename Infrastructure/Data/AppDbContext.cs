@@ -16,12 +16,14 @@ namespace VerificarApi.Infrastructure.Data
         public DbSet<FipeModelo> FipeModelos { get; set; }
         public DbSet<VehicleHistory> VehicleHistories { get; set; }
         public DbSet<VehicleAnalysis> VehicleAnalyses { get; set; }
+        public DbSet<SavedVehicle> SavedVehicles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.ApplyConfiguration(new VehicleConfiguration());
+            modelBuilder.ApplyConfiguration(new VehicleAnalysisConfiguration());
         }
     }
 }

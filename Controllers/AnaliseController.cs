@@ -31,6 +31,22 @@ namespace VerificarApi.Controllers
         }
 
         /// <summary>
+        /// Lista todas as análises de veículos salvas no banco (cache de IA).
+        /// Permite filtrar por marca e/ou modelo.
+        /// </summary>
+        [HttpGet("cache")]
+        [ProducesResponseType(typeof(List<VehicleAnalysisDto>), 200)]
+        public async Task<ActionResult<List<VehicleAnalysisDto>>> ListarCache(
+            [FromQuery] string? marca = null,
+            [FromQuery] string? modelo = null,
+            [FromQuery] int pagina = 1,
+            [FromQuery] int porPagina = 20)
+        {
+            var analises = await _analysisService.ListarAnalisesSalvasAsync(marca, modelo, pagina, porPagina);
+            return Ok(analises);
+        }
+
+        /// <summary>
         /// Retorna análise completa do veículo: FIPE + precificação + histórico + análise de IA.
         /// A análise de IA é cacheada no banco — o mesmo modelo/ano nunca é consultado duas vezes.
         /// </summary>
@@ -41,8 +57,19 @@ namespace VerificarApi.Controllers
             [FromQuery] string modelo,
             [FromQuery] int ano,
             [FromQuery] int quilometragem = 0,
-            [FromQuery] string condicao = "Bom",
-            [FromQuery] string? placa = null)
+            [FromQuery] string condicao = "Não sei",
+            [FromQuery] string? placa = null,
+            [FromQuery] string combustivel = "Flex",
+            [FromQuery] string cambio = "Não sei",
+            [FromQuery] string numeroProprietarios = "Não sei",
+            [FromQuery] string ipvaEmDia = "Não sei",
+            [FromQuery] string revisaoEmDia = "Não sei",
+            [FromQuery] string documentacaoRegular = "Não sei",
+            [FromQuery] string sinistrado = "Não sei",
+            [FromQuery] string estadoPintura = "Não sei",
+            [FromQuery] string estadoInterior = "Não sei",
+            [FromQuery] string estadoPneus = "Não sei",
+            [FromQuery] string estadoRodas = "Não sei")
         {
             if (string.IsNullOrWhiteSpace(marca) || string.IsNullOrWhiteSpace(modelo) || ano < 1985)
                 return BadRequest(new { mensagem = "Informe marca, modelo e ano válido." });
@@ -66,7 +93,18 @@ namespace VerificarApi.Controllers
                         AnoModelo = ano,
                         ValorFipe = fipe.ValorFipeNumerico,
                         Quilometragem = quilometragem,
-                        Condicao = condicao
+                        Condicao = condicao,
+                        Combustivel = combustivel,
+                        Cambio = cambio,
+                        NumeroProprietarios = numeroProprietarios,
+                        IpvaEmDia = ipvaEmDia,
+                        RevisaoEmDia = revisaoEmDia,
+                        DocumentacaoRegular = documentacaoRegular,
+                        Sinistrado = sinistrado,
+                        EstadoPintura = estadoPintura,
+                        EstadoInterior = estadoInterior,
+                        EstadoPneus = estadoPneus,
+                        EstadoRodas = estadoRodas
                     });
                 }
 

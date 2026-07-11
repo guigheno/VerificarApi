@@ -45,7 +45,16 @@ namespace VerificarApi.Services
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<List<FipeAnoDto>>(json, JsonOptions) ?? new();
+            var anos = JsonSerializer.Deserialize<List<FipeAnoDto>>(json, JsonOptions) ?? new();
+
+            // A fonte FIPE ocasionalmente retorna anos inválidos (ex: "32000 Híbrido").
+            // Filtra apenas anos plausíveis (1950 até o próximo ano-modelo).
+            int anoMaximo = DateTime.Now.Year + 1;
+            return anos.Where(a =>
+            {
+                var prefixo = a.Nome.Split(' ')[0];
+                return int.TryParse(prefixo, out var anoNum) && anoNum >= 1950 && anoNum <= anoMaximo;
+            }).ToList();
         }
 
         public async Task<List<FipeModeloDto>> ListarModelosAsync(string marcaNome)

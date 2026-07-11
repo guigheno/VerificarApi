@@ -71,6 +71,67 @@ namespace VerificarApi.Migrations
                     b.ToTable("FipeModelos");
                 });
 
+            modelBuilder.Entity("VerificarApi.Domain.Entities.SavedVehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("AnoModelo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Marca")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Modelo")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal?>("NotaConfiabilidade")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("NotaConforto")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("NotaConsumo")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("NotaCustoManutencao")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("NotaDesempenho")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("NotaEspacoInterno")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("NotaGeral")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal?>("PercentualAjuste")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("Placa")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("SalvoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal?>("ValorEstimado")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("ValorFipe")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SavedVehicles");
+                });
+
             modelBuilder.Entity("VerificarApi.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -223,33 +284,36 @@ namespace VerificarApi.Migrations
 
                     b.Property<string>("Marca")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Modelo")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
 
                     b.Property<string>("ModeloIA")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<decimal>("NotaConfiabilidade")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(3,2)");
 
                     b.Property<decimal>("NotaConforto")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(3,2)");
 
                     b.Property<decimal>("NotaConsumo")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(3,2)");
 
                     b.Property<decimal>("NotaCustoManutencao")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(3,2)");
 
                     b.Property<decimal>("NotaDesempenho")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(3,2)");
 
                     b.Property<decimal>("NotaEspacoInterno")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(3,2)");
 
                     b.Property<string>("PontosNegativos")
                         .IsRequired()
@@ -263,13 +327,21 @@ namespace VerificarApi.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime>("ProximaAtualizacaoEm")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("ResumoGeral")
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime>("UltimaConsultaEm")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
 
-                    b.ToTable("VehicleAnalyses");
+                    b.HasIndex("Marca", "Modelo", "AnoModelo");
+
+                    b.ToTable("VehicleAnalyses", (string)null);
                 });
 
             modelBuilder.Entity("VerificarApi.Domain.Entities.VehicleHistory", b =>

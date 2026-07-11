@@ -29,11 +29,46 @@ namespace VerificarApi.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Calcula a validade da análise:
+        /// 10% da idade do carro em meses, mínimo de 1 mês.
+        /// Ex: carro de 10 anos = 12 meses de validade; carro de 2 anos = 2,4 meses (~73 dias); carro novo = 1 mês.
+        /// </summary>
+        private static DateTime CalcularProximaAtualizacao(int anoModelo)
+        {
+            int anoAtual = DateTime.UtcNow.Year;
+            int idadeAnos = Math.Max(anoAtual - anoModelo, 0);
+            double validadeMeses = Math.Max(idadeAnos * 12 * 0.10, 1.0); // 10% da idade em meses, mínimo 1
+            return DateTime.UtcNow.AddMonths((int)Math.Floor(validadeMeses))
+                                  .AddDays((validadeMeses % 1) * 30); // fração em dias
+        }
+
+        public async Task<List<VehicleAnalysisDto>> ListarAnalisesSalvasAsync(string? marca, string? modelo, int pagina, int porPagina)
+        {
+            var query = _context.VehicleAnalyses.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(marca))
+                query = query.Where(a => a.Marca.ToUpper().Contains(marca.ToUpper()));
+
+            if (!string.IsNullOrWhiteSpace(modelo))
+                query = query.Where(a => a.Modelo.ToUpper().Contains(modelo.ToUpper()));
+
+            var analises = await query
+                .OrderBy(a => a.Marca)
+                .ThenBy(a => a.Modelo)
+                .ThenBy(a => a.AnoModelo)
+                .Skip((pagina - 1) * porPagina)
+                .Take(porPagina)
+                .ToListAsync();
+
+            return analises.Select(a => MapearDto(a, geradoPorIA: false)).ToList();
+        }
+
         public async Task<VehicleAnalysisDto> ObterOuGerarAnaliseAsync(string marca, string modelo, int ano)
         {
-            // 1. Tenta buscar no cache
             var marcaNorm = marca.Trim().ToUpper();
             var modeloNorm = modelo.Trim().ToUpper();
+            var agora = DateTime.UtcNow;
 
             var cache = await _context.VehicleAnalyses
                 .Where(a =>
@@ -42,22 +77,61 @@ namespace VerificarApi.Services
                     a.AnoModelo == ano)
                 .FirstOrDefaultAsync();
 
-            if (cache != null)
+            // Cache existe e ainda é válido
+            if (cache != null && agora < cache.ProximaAtualizacaoEm)
             {
-                _logger.LogInformation("Análise encontrada no cache para {Marca} {Modelo} {Ano}", marca, modelo, ano);
+                _logger.LogInformation(
+                    "Cache válido para {Marca} {Modelo} {Ano}. Válido até {Validade}",
+                    marca, modelo, ano, cache.ProximaAtualizacaoEm.ToString("dd/MM/yyyy"));
+
+                // Atualiza só o timestamp de consulta
+                cache.UltimaConsultaEm = agora;
+                await _context.SaveChangesAsync();
+
                 return MapearDto(cache, geradoPorIA: false);
             }
 
-            // 2. Não encontrou — gera via OpenAI
-            _logger.LogInformation("Gerando análise via IA para {Marca} {Modelo} {Ano}", marca, modelo, ano);
-            var analise = await GerarViaOpenAiAsync(marca, modelo, ano);
+            // Cache existe mas está vencido — regenera
+            if (cache != null && agora >= cache.ProximaAtualizacaoEm)
+            {
+                _logger.LogInformation(
+                    "Cache vencido para {Marca} {Modelo} {Ano} (venceu em {Vencimento}). Regenerando...",
+                    marca, modelo, ano, cache.ProximaAtualizacaoEm.ToString("dd/MM/yyyy"));
 
-            // 3. Salva no banco para reaproveitamento
-            await _context.VehicleAnalyses.AddAsync(analise);
+                var analiseAtualizada = await GerarViaOpenAiAsync(marca, modelo, ano);
+
+                // Atualiza os campos existentes
+                cache.ProblemasCronicos = analiseAtualizada.ProblemasCronicos;
+                cache.PontosPositivos = analiseAtualizada.PontosPositivos;
+                cache.PontosNegativos = analiseAtualizada.PontosNegativos;
+                cache.ResumoGeral = analiseAtualizada.ResumoGeral;
+                cache.NotaConfiabilidade = analiseAtualizada.NotaConfiabilidade;
+                cache.NotaCustoManutencao = analiseAtualizada.NotaCustoManutencao;
+                cache.NotaConforto = analiseAtualizada.NotaConforto;
+                cache.NotaDesempenho = analiseAtualizada.NotaDesempenho;
+                cache.NotaConsumo = analiseAtualizada.NotaConsumo;
+                cache.NotaEspacoInterno = analiseAtualizada.NotaEspacoInterno;
+                cache.GeradoEm = agora;
+                cache.UltimaConsultaEm = agora;
+                cache.ProximaAtualizacaoEm = analiseAtualizada.ProximaAtualizacaoEm;
+                cache.ModeloIA = analiseAtualizada.ModeloIA;
+
+                await _context.SaveChangesAsync();
+                return MapearDto(cache, geradoPorIA: true);
+            }
+
+            // Não existe cache — gera pela primeira vez
+            _logger.LogInformation("Gerando análise via IA para {Marca} {Modelo} {Ano}", marca, modelo, ano);
+            var novaAnalise = await GerarViaOpenAiAsync(marca, modelo, ano);
+
+            await _context.VehicleAnalyses.AddAsync(novaAnalise);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Análise salva no banco para {Marca} {Modelo} {Ano}", marca, modelo, ano);
-            return MapearDto(analise, geradoPorIA: true);
+            _logger.LogInformation(
+                "Análise salva. Próxima atualização: {ProximaAtualizacao}",
+                novaAnalise.ProximaAtualizacaoEm.ToString("dd/MM/yyyy"));
+
+            return MapearDto(novaAnalise, geradoPorIA: true);
         }
 
         private async Task<VehicleAnalysis> GerarViaOpenAiAsync(string marca, string modelo, int ano)
@@ -65,21 +139,28 @@ namespace VerificarApi.Services
             var apiKey = _config["OpenAI:ApiKey"]
                 ?? throw new InvalidOperationException("Chave da OpenAI não configurada.");
 
-            var prompt = "Você é um especialista em veículos usados no mercado brasileiro. " +
+            var prompt =
+                "Você é um especialista em veículos usados no mercado brasileiro com acesso a relatos de fóruns, recalls, " +
+                "reclamações no Reclame Aqui e laudos técnicos. " +
                 $"Analise o veículo: {marca} {modelo} {ano}. " +
-                "Responda APENAS com um JSON válido, sem markdown, sem explicações, exatamente neste formato: " +
-                "{\"problemas_cronicos\": \"lista dos principais problemas mecânicos/elétricos conhecidos deste modelo/ano, separados por ponto e vírgula\"," +
-                "\"pontos_positivos\": \"principais vantagens do veículo, separadas por ponto e vírgula\"," +
-                "\"pontos_negativos\": \"principais desvantagens do veículo, separadas por ponto e vírgula\"," +
-                "\"resumo_geral\": \"parágrafo de 2 a 3 frases resumindo o veículo para um comprador\"," +
-                "\"nota_confiabilidade\": 3.5," +
-                "\"nota_custo_manutencao\": 4.0," +
-                "\"nota_conforto\": 3.8," +
-                "\"nota_desempenho\": 3.2," +
-                "\"nota_consumo\": 3.9," +
-                "\"nota_espaco_interno\": 3.5} " +
-                "As notas devem ser de 0.0 a 5.0. Use uma casa decimal. Seja objetivo e baseado em dados reais do mercado brasileiro.";
-
+                "Responda APENAS com um JSON válido, sem markdown, sem explicações. Use exatamente este formato:\n" +
+                "{" +
+                "\"problemas_cronicos\": \"SOMENTE defeitos crônicos REAIS, amplamente documentados e recorrentes neste modelo/geração específica. " +
+                "Inclua apenas falhas que aparecem com frequência significativa entre proprietários (ex: desgaste precoce de correia, falha no módulo de injeção). " +
+                "Separe por ponto e vírgula. Se este modelo NÃO possui defeitos crônicos documentados relevantes, retorne string vazia.\"," +
+                "\"pontos_positivos\": \"principais vantagens comprovadas do veículo para o mercado brasileiro, separadas por ponto e vírgula\"," +
+                "\"pontos_negativos\": \"principais desvantagens reais do veículo (excluindo defeitos crônicos já listados), separadas por ponto e vírgula\"," +
+                "\"resumo_geral\": \"parágrafo de 2 a 3 frases objetivo e neutro resumindo este veículo para um comprador que avalia a compra\"," +
+                "\"nota_confiabilidade\": 0.0," +
+                "\"nota_custo_manutencao\": 0.0," +
+                "\"nota_conforto\": 0.0," +
+                "\"nota_desempenho\": 0.0," +
+                "\"nota_consumo\": 0.0," +
+                "\"nota_espaco_interno\": 0.0" +
+                "} " +
+                "Substitua os 0.0 pelas notas reais de 0.0 a 5.0 com uma casa decimal, baseadas em dados reais e comparativos do mercado brasileiro. " +
+                "5.0 = excelente, 3.0 = mediano, 1.0 = ruim.";
+                
             var requestBody = new
             {
                 model = ModeloIA,
@@ -88,7 +169,7 @@ namespace VerificarApi.Services
                     new { role = "user", content = prompt }
                 },
                 temperature = 0.3,
-                max_tokens = 800
+                max_tokens = 1500
             };
 
             var json = JsonSerializer.Serialize(requestBody);
@@ -114,7 +195,6 @@ namespace VerificarApi.Services
                 .GetProperty("content")
                 .GetString() ?? "{}";
 
-            // Parse do JSON retornado pela IA
             using var analiseDoc = JsonDocument.Parse(textoResposta.Trim());
             var root = analiseDoc.RootElement;
 
@@ -135,6 +215,8 @@ namespace VerificarApi.Services
                 NotaConsumo = root.GetProperty("nota_consumo").GetDecimal(),
                 NotaEspacoInterno = root.GetProperty("nota_espaco_interno").GetDecimal(),
                 GeradoEm = DateTime.UtcNow,
+                UltimaConsultaEm = DateTime.UtcNow,
+                ProximaAtualizacaoEm = CalcularProximaAtualizacao(ano),
                 ModeloIA = ModeloIA
             };
         }
@@ -161,7 +243,9 @@ namespace VerificarApi.Services
                 NotaEspacoInterno = a.NotaEspacoInterno,
                 NotaGeral = Math.Round(notaGeral, 1),
                 GeradoPorIA = geradoPorIA,
-                GeradoEm = a.GeradoEm
+                GeradoEm = a.GeradoEm,
+                UltimaConsultaEm = a.UltimaConsultaEm,
+                ProximaAtualizacaoEm = a.ProximaAtualizacaoEm
             };
         }
     }

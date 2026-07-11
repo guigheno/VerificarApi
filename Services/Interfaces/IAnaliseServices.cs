@@ -14,6 +14,11 @@ namespace VerificarApi.Services.Interfaces
         /// Se não, gera via OpenAI e salva para reaproveitamento.
         /// </summary>
         Task<VehicleAnalysisDto> ObterOuGerarAnaliseAsync(string marca, string modelo, int ano);
+
+        /// <summary>
+        /// Lista todas as análises salvas no banco, com paginação e filtros opcionais.
+        /// </summary>
+        Task<List<VehicleAnalysisDto>> ListarAnalisesSalvasAsync(string? marca, string? modelo, int pagina, int porPagina);
     }
 
     public interface IVehicleHistoryService

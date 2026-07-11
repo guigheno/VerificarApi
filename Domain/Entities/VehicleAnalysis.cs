@@ -25,6 +25,8 @@ namespace VerificarApi.Domain.Entities
 
         // Controle
         public DateTime GeradoEm { get; set; } = DateTime.UtcNow;
+        public DateTime UltimaConsultaEm { get; set; } = DateTime.UtcNow;
+        public DateTime ProximaAtualizacaoEm { get; set; }
         public string ModeloIA { get; set; } = string.Empty; // ex: gpt-4o-mini
     }
 }

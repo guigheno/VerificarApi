@@ -12,6 +12,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        else
+            policy.DisallowCredentials(); // sem origens configuradas: nenhuma chamada cross-origin é permitida
+    });
+});
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -86,6 +99,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<VerificarApi.Services.Interfaces.ISavedVehicleService, VerificarApi.Services.SavedVehicleService>();
 
 // HttpClient nomeado para a API FIPE com timeout de 15s
 builder.Services.AddHttpClient<VerificarApi.Services.FipeService>(client =>
@@ -132,10 +146,60 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseDefaultFiles();
+app.UseStaticFiles();
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Bootstrap do primeiro Admin: sem isso, os endpoints [Authorize(Roles = "Admin")]
+// (sync da FIPE, CRUD de usuários/veículos) ficam permanentemente inacessíveis,
+// já que o registro público sempre cria usuários com Role = "User".
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    var jaTemAdmin = await db.Users.AnyAsync(u => u.Role == "Admin");
+    if (!jaTemAdmin)
+    {
+        var seedEmail = app.Configuration["AdminSeed:Email"];
+        var seedPassword = app.Configuration["AdminSeed:Password"];
+
+        if (string.IsNullOrWhiteSpace(seedEmail) || string.IsNullOrWhiteSpace(seedPassword))
+        {
+            logger.LogWarning(
+                "Nenhum usuário Admin existe e 'AdminSeed:Email'/'AdminSeed:Password' não estão configurados. " +
+                "Endpoints [Authorize(Roles=\"Admin\")] continuarão inacessíveis até configurar e reiniciar a API.");
+        }
+        else
+        {
+            var existente = await db.Users.FirstOrDefaultAsync(u => u.Email == seedEmail);
+            if (existente != null)
+            {
+                existente.Role = "Admin";
+                logger.LogWarning("Usuário {Email} promovido a Admin via AdminSeed.", seedEmail);
+            }
+            else
+            {
+                db.Users.Add(new VerificarApi.Domain.Entities.User
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Administrador",
+                    Email = seedEmail,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(seedPassword),
+                    Role = "Admin",
+                    TenantId = Guid.NewGuid()
+                });
+                logger.LogWarning("Usuário Admin {Email} criado via AdminSeed.", seedEmail);
+            }
+
+            await db.SaveChangesAsync();
+        }
+    }
+}
 
 app.Run();
