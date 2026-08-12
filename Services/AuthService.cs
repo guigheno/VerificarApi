@@ -47,12 +47,19 @@ namespace VerificarApi.Services
         public async Task<string> LoginAsync(LoginDto dto)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+            // Mensagem única para não vazar quais e-mails existem no sistema.
+            // Quando o usuário não existe, gera um hash descartável para manter
+            // o tempo de resposta semelhante ao de uma senha inválida.
             if (user == null)
-                throw new Exception("Usuário não encontrado");
+            {
+                BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString());
+                throw new Exception("Credenciais inválidas");
+            }
 
             var valid = BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
             if (!valid)
-                throw new Exception("Senha inválida");
+                throw new Exception("Credenciais inválidas");
 
             var claims = new[]
             {

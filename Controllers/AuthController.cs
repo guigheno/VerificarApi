@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VerificarApi.Dtos.Auth;
 using VerificarApi.Dtos.Users;
 using VerificarApi.Services.Interfaces;
@@ -23,15 +24,30 @@ namespace VerificarApi.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
-            var result = await _authService.RegisterAsync(dto);
-            return Ok(new { message = result });
+            try
+            {
+                var result = await _authService.RegisterAsync(dto);
+                return Ok(new { message = result });
+            }
+            catch (Exception ex)
+            {
+                return Conflict(new { mensagem = ex.Message });
+            }
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> Login(LoginDto dto)
         {
-            var token = await _authService.LoginAsync(dto);
-            return Ok(new { token });
+            try
+            {
+                var token = await _authService.LoginAsync(dto);
+                return Ok(new { token });
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized(new { mensagem = ex.Message });
+            }
         }
 
         [HttpGet("me")]

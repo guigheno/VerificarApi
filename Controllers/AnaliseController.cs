@@ -155,6 +155,7 @@ namespace VerificarApi.Controllers
 
         /// <summary>
         /// Retorna apenas a análise de IA do veículo (com cache).
+        /// Consome 1 crédito de consulta por modelo, como a análise completa.
         /// </summary>
         [HttpGet("ia")]
         [ProducesResponseType(typeof(VehicleAnalysisDto), 200)]
@@ -166,9 +167,14 @@ namespace VerificarApi.Controllers
             if (string.IsNullOrWhiteSpace(marca) || string.IsNullOrWhiteSpace(modelo) || ano < 1985)
                 return BadRequest(new { mensagem = "Informe marca, modelo e ano válido." });
 
+            var restantes = await _userService.ConsultasRestantesAsync(UsuarioId, TipoConsulta.Modelo);
+            if (restantes <= 0)
+                return StatusCode(403, new { mensagem = "Você atingiu o limite de consultas por modelo. Fale com o administrador para liberar mais." });
+
             try
             {
                 var analise = await _analysisService.ObterOuGerarAnaliseAsync(marca, modelo, ano);
+                await _userService.ConsumirConsultaAsync(UsuarioId, TipoConsulta.Modelo);
                 return Ok(analise);
             }
             catch (Exception ex)

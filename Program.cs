@@ -1,16 +1,60 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading.RateLimiting;
 using VerificarApi.Infrastructure.Data;
 using VerificarApi.Services;
 using VerificarApi.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration.GetConnectionString("Default");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new Exception("ConnectionStrings:Default não configurada. Defina a variável de ambiente ConnectionStrings__Default.");
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+    throw new Exception("Jwt:Key não configurada. Defina a variável de ambiente Jwt__Key.");
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Confia nos headers X-Forwarded-For/Proto vindos do cloudflared (túnel Cloudflare),
+// para que o rate limiting por IP veja o IP real do cliente e o esquema https seja respeitado.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    options.ForwardLimit = 1;
+});
+
+// Rate limiting: proteção contra força bruta no login.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { mensagem = "Muitas tentativas. Aguarde um minuto e tente novamente." },
+            cancellationToken);
+    };
+
+    options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+});
 
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 
@@ -61,13 +105,9 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
-        builder.Configuration.GetConnectionString("Default"),
+        connectionString,
         new MySqlServerVersion(new Version(8, 0, 36))
     ));
-
-var jwtKey = builder.Configuration["Jwt:Key"];
-if (string.IsNullOrWhiteSpace(jwtKey))
-    throw new Exception("JWT Key não configurada.");
 
 var key = Encoding.UTF8.GetBytes(jwtKey);
 
@@ -137,15 +177,26 @@ builder.Services.AddScoped<VerificarApi.Services.Interfaces.IVehicleAnalysisServ
 
 var app = builder.Build();
 
+var appLogger = app.Services.GetRequiredService<ILogger<Program>>();
+
+if (!app.Environment.IsDevelopment() &&
+    (string.IsNullOrWhiteSpace(app.Configuration["AllowedHosts"]) || app.Configuration["AllowedHosts"] == "*"))
+{
+    appLogger.LogWarning(
+        "AllowedHosts está em '*' — em produção defina a variável de ambiente AllowedHosts com seu domínio (ex: verificar.com.br,localhost).");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseCors();
 
 app.UseAuthentication();
