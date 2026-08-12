@@ -35,8 +35,7 @@ namespace VerificarApi.Services
                 Name = dto.Name,
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                Role = "User",
-                TenantId = Guid.NewGuid()
+                Role = "User"
             };
 
             _context.Users.Add(user);
@@ -59,8 +58,7 @@ namespace VerificarApi.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role),
-                new Claim("tenantId", user.TenantId.ToString())
+                new Claim(ClaimTypes.Role, user.Role)
             };
 
             var key = new SymmetricSecurityKey(

@@ -7,6 +7,7 @@ namespace VerificarApi.Domain.Entities
         public string Email { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string Role { get; set; } = "User";
-        public Guid TenantId { get; set; } // ver nota em TenantProvider: não há isolamento real por tenant hoje
+        public int QtdConsultaModelo { get; set; }
+        public int QtdConsultaPlaca { get; set; }
     }
 }

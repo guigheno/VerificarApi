@@ -6,6 +6,7 @@ namespace VerificarApi.Dtos.Users
         public string Name { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string Role { get; set; } = null!;
-        public Guid TenantId { get; set; }
+        public int QtdConsultaModelo { get; set; }
+        public int QtdConsultaPlaca { get; set; }
     }
 }

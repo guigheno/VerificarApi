@@ -150,12 +150,15 @@ namespace VerificarApi.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<int>("QtdConsultaModelo")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QtdConsultaPlaca")
+                        .HasColumnType("int");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("longtext");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
 
                     b.HasKey("Id");
 

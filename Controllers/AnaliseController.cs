@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VerificarApi.Dtos.Analise;
@@ -14,6 +15,7 @@ namespace VerificarApi.Controllers
         private readonly IVehicleAnalysisService _analysisService;
         private readonly IVehicleHistoryService _historyService;
         private readonly IPrecificacaoService _precificacaoService;
+        private readonly IUserService _userService;
         private readonly ILogger<AnaliseController> _logger;
 
         public AnaliseController(
@@ -21,14 +23,19 @@ namespace VerificarApi.Controllers
             IVehicleAnalysisService analysisService,
             IVehicleHistoryService historyService,
             IPrecificacaoService precificacaoService,
+            IUserService userService,
             ILogger<AnaliseController> logger)
         {
             _fipeService = fipeService;
             _analysisService = analysisService;
             _historyService = historyService;
             _precificacaoService = precificacaoService;
+            _userService = userService;
             _logger = logger;
         }
+
+        private Guid UsuarioId =>
+            Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         /// <summary>
         /// Lista todas as análises de veículos salvas no banco (cache de IA).
@@ -74,6 +81,18 @@ namespace VerificarApi.Controllers
             if (string.IsNullOrWhiteSpace(marca) || string.IsNullOrWhiteSpace(modelo) || ano < 1985)
                 return BadRequest(new { mensagem = "Informe marca, modelo e ano válido." });
 
+            // Consulta por modelo (sem placa) consome 1 crédito de QtdConsultaModelo.
+            // A chamada feita após uma consulta por placa envia o parâmetro placa e
+            // não consome crédito de modelo — o crédito de placa já foi consumido
+            // em /consulta/placa.
+            var consultaPorModelo = string.IsNullOrWhiteSpace(placa);
+            if (consultaPorModelo)
+            {
+                var restantes = await _userService.ConsultasRestantesAsync(UsuarioId, TipoConsulta.Modelo);
+                if (restantes <= 0)
+                    return StatusCode(403, new { mensagem = "Você atingiu o limite de consultas por modelo. Fale com o administrador para liberar mais." });
+            }
+
             try
             {
                 _logger.LogInformation("Análise completa: {Marca} {Modelo} {Ano}", marca, modelo, ano);
@@ -108,7 +127,7 @@ namespace VerificarApi.Controllers
                     });
                 }
 
-                return Ok(new AnaliseCompletaResponseDto
+                var resultado = new AnaliseCompletaResponseDto
                 {
                     Marca = fipe?.Marca ?? marca,
                     Modelo = fipe?.Modelo ?? modelo,
@@ -120,7 +139,12 @@ namespace VerificarApi.Controllers
                     Historico = historico,
                     Analise = analise,
                     PossuiDadosCadastrados = fipe?.DadosComplementares != null
-                });
+                };
+
+                if (consultaPorModelo)
+                    await _userService.ConsumirConsultaAsync(UsuarioId, TipoConsulta.Modelo);
+
+                return Ok(resultado);
             }
             catch (Exception ex)
             {

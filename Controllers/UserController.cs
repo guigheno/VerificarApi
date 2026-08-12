@@ -53,6 +53,24 @@ namespace VerificarApi.Controllers
             return Ok(user);
         }
 
+        [HttpPut("{id}/consultas")]
+        public async Task<ActionResult<UserResponseDto>> AdicionarConsultas(Guid id, AdicionarConsultasDto dto)
+        {
+            try
+            {
+                var user = await _userService.AdicionarConsultasAsync(id, dto);
+
+                if (user == null)
+                    return NotFound();
+
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { mensagem = ex.Message });
+            }
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {

@@ -1,5 +1,8 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VerificarApi.Dtos.Auth;
+using VerificarApi.Dtos.Users;
 using VerificarApi.Services.Interfaces;
 
 namespace VerificarApi.Controllers
@@ -9,10 +12,12 @@ namespace VerificarApi.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IUserService _userService;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IUserService userService)
         {
             _authService = authService;
+            _userService = userService;
         }
 
         [HttpPost("register")]
@@ -27,6 +32,19 @@ namespace VerificarApi.Controllers
         {
             var token = await _authService.LoginAsync(dto);
             return Ok(new { token });
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<ActionResult<UserResponseDto>> Me()
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var perfil = await _userService.ObterPerfilAsync(userId);
+
+            if (perfil == null)
+                return NotFound();
+
+            return Ok(perfil);
         }
     }
 }

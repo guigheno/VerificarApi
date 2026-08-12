@@ -94,9 +94,7 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
-builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<VerificarApi.Services.Interfaces.ISavedVehicleService, VerificarApi.Services.SavedVehicleService>();
@@ -191,8 +189,7 @@ using (var scope = app.Services.CreateScope())
                     Name = "Administrador",
                     Email = seedEmail,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(seedPassword),
-                    Role = "Admin",
-                    TenantId = Guid.NewGuid()
+                    Role = "Admin"
                 });
                 logger.LogWarning("Usuário Admin {Email} criado via AdminSeed.", seedEmail);
             }
