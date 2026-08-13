@@ -26,7 +26,8 @@ namespace VerificarApi.Services
                     Email = u.Email,
                     Role = u.Role,
                     QtdConsultaModelo = u.QtdConsultaModelo,
-                    QtdConsultaPlaca = u.QtdConsultaPlaca
+                    QtdConsultaPlaca = u.QtdConsultaPlaca,
+                    RegistrationLinkToken = u.RegistrationLinkToken
                 })
                 .ToListAsync();
         }
@@ -42,7 +43,8 @@ namespace VerificarApi.Services
                     Email = u.Email,
                     Role = u.Role,
                     QtdConsultaModelo = u.QtdConsultaModelo,
-                    QtdConsultaPlaca = u.QtdConsultaPlaca
+                    QtdConsultaPlaca = u.QtdConsultaPlaca,
+                    RegistrationLinkToken = u.RegistrationLinkToken
                 })
                 .FirstOrDefaultAsync();
         }
@@ -179,7 +181,8 @@ namespace VerificarApi.Services
                     Email = u.Email,
                     Role = u.Role,
                     QtdConsultaModelo = u.QtdConsultaModelo,
-                    QtdConsultaPlaca = u.QtdConsultaPlaca
+                    QtdConsultaPlaca = u.QtdConsultaPlaca,
+                    RegistrationLinkToken = u.RegistrationLinkToken
                 })
                 .FirstOrDefaultAsync();
         }

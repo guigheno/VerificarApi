@@ -16,18 +16,31 @@ namespace VerificarApi.Services
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IRegistrationLinkService _linkService;
 
-    public AuthService(AppDbContext context, IConfiguration configuration)
+    public AuthService(AppDbContext context, IConfiguration configuration, IRegistrationLinkService linkService)
     {
         _context = context;
         _configuration = configuration;
+        _linkService = linkService;
     }
 
         public async Task<string> RegisterAsync(RegisterDto dto)
         {
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
             var exists = await _context.Users.AnyAsync(u => u.Email == dto.Email);
             if (exists)
                 throw new Exception("Usuário já existe");
+
+            // Link de registro: reserva uma vaga atomicamente e usa os créditos
+            // definidos nele. A transação reverte se algo falhar depois.
+            var link = string.IsNullOrWhiteSpace(dto.CodigoLink)
+                ? null
+                : await _linkService.ClaimUsoAsync(dto.CodigoLink);
+
+            if (!string.IsNullOrWhiteSpace(dto.CodigoLink) && link == null)
+                throw new Exception("Link de registro inválido, expirado ou sem vagas disponíveis.");
 
             var user = new User
             {
@@ -35,11 +48,15 @@ namespace VerificarApi.Services
                 Name = dto.Name,
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                Role = "User"
+                Role = "User",
+                QtdConsultaModelo = link?.QtdConsultaModelo ?? 0,
+                QtdConsultaPlaca = link?.QtdConsultaPlaca ?? 0,
+                RegistrationLinkToken = link?.Token
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+            await tx.CommitAsync();
 
             return "Usuário criado";
         }

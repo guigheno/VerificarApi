@@ -9,6 +9,7 @@ obj/
 
 appsettings.Development.json
 appsettings.json
+appsettings.Production.json
 
 # Pasta de deploy gerada pelo dotnet publish
 publish/

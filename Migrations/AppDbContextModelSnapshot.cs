@@ -71,6 +71,45 @@ namespace VerificarApi.Migrations
                     b.ToTable("FipeModelos");
                 });
 
+            modelBuilder.Entity("VerificarApi.Domain.Entities.RegistrationLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("LimiteUsos")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("QtdConsultaModelo")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QtdConsultaPlaca")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("UsosAtuais")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RegistrationLinks");
+                });
+
             modelBuilder.Entity("VerificarApi.Domain.Entities.SavedVehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -155,6 +194,9 @@ namespace VerificarApi.Migrations
 
                     b.Property<int>("QtdConsultaPlaca")
                         .HasColumnType("int");
+
+                    b.Property<string>("RegistrationLinkToken")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Role")
                         .IsRequired()

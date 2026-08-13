@@ -17,6 +17,7 @@ namespace VerificarApi.Infrastructure.Data
         public DbSet<VehicleHistory> VehicleHistories { get; set; }
         public DbSet<VehicleAnalysis> VehicleAnalyses { get; set; }
         public DbSet<SavedVehicle> SavedVehicles { get; set; }
+        public DbSet<RegistrationLink> RegistrationLinks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

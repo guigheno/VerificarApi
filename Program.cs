@@ -138,6 +138,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<VerificarApi.Services.Interfaces.ISavedVehicleService, VerificarApi.Services.SavedVehicleService>();
+builder.Services.AddScoped<IRegistrationLinkService, RegistrationLinkService>();
 
 // HttpClient nomeado para a API FIPE com timeout de 15s
 builder.Services.AddHttpClient<VerificarApi.Services.FipeService>(client =>

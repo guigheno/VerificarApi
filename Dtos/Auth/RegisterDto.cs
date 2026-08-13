@@ -17,5 +17,8 @@ namespace VerificarApi.Dtos.Auth
         [MinLength(8)]
         [MaxLength(128)]
         public string Password { get; set; } = string.Empty;
+
+        [MaxLength(64)]
+        public string? CodigoLink { get; set; }
     }
 }

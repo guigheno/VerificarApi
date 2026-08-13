@@ -8,5 +8,6 @@ namespace VerificarApi.Dtos.Users
         public string Role { get; set; } = null!;
         public int QtdConsultaModelo { get; set; }
         public int QtdConsultaPlaca { get; set; }
+        public string? RegistrationLinkToken { get; set; }
     }
 }

@@ -9,5 +9,6 @@ namespace VerificarApi.Domain.Entities
         public string Role { get; set; } = "User";
         public int QtdConsultaModelo { get; set; }
         public int QtdConsultaPlaca { get; set; }
+        public string? RegistrationLinkToken { get; set; }
     }
 }
