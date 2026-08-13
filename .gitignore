@@ -10,5 +10,8 @@ obj/
 appsettings.Development.json
 appsettings.json
 
+# Pasta de deploy gerada pelo dotnet publish
+publish/
+
 # Claude local settings
 .claude/
