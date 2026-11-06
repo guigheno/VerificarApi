@@ -81,6 +81,9 @@ namespace VerificarApi.Controllers
             if (string.IsNullOrWhiteSpace(marca) || string.IsNullOrWhiteSpace(modelo) || ano < 1985)
                 return BadRequest(new { mensagem = "Informe marca, modelo e ano válido." });
 
+            // Quilometragem negativa não faz sentido — trata como não informada.
+            quilometragem = Math.Max(0, quilometragem);
+
             // Consulta por modelo (sem placa) consome 1 crédito de QtdConsultaModelo.
             // A chamada feita após uma consulta por placa envia o parâmetro placa e
             // não consome crédito de modelo — o crédito de placa já foi consumido

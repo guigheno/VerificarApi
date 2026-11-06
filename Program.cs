@@ -140,6 +140,13 @@ builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<VerificarApi.Services.Interfaces.ISavedVehicleService, VerificarApi.Services.SavedVehicleService>();
 builder.Services.AddScoped<IRegistrationLinkService, RegistrationLinkService>();
 
+// reCAPTCHA v3 (Google) — validação de bots no registro
+builder.Services.AddHttpClient<VerificarApi.Services.RecaptchaService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddScoped<VerificarApi.Services.Interfaces.IRecaptchaService, VerificarApi.Services.RecaptchaService>();
+
 // HttpClient nomeado para a API FIPE com timeout de 15s
 builder.Services.AddHttpClient<VerificarApi.Services.FipeService>(client =>
 {
@@ -194,9 +201,18 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    await next();
+    var ua = context.Request.Headers.UserAgent.ToString();
+    appLogger.LogInformation(
+        "REQ {Method} {Path} => {Status} ({Ip})",
+        context.Request.Method,
+        context.Request.Path,
+        context.Response.StatusCode,
+        context.Connection.RemoteIpAddress);
+});
 app.UseHttpsRedirection();
-app.UseDefaultFiles();
-app.UseStaticFiles();
 app.UseRateLimiter();
 app.UseCors();
 
@@ -204,6 +220,18 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapWhen(context => !context.Request.Path.StartsWithSegments("/api"), spa =>
+{
+    spa.UseDefaultFiles();
+    spa.UseStaticFiles();
+    spa.Run(async context =>
+    {
+        context.Response.StatusCode = 200;
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "index.html"));
+    });
+});
 
 // Bootstrap do primeiro Admin: sem isso, os endpoints [Authorize(Roles = "Admin")]
 // (sync da FIPE, CRUD de usuários/veículos) ficam permanentemente inacessíveis,

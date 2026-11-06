@@ -14,16 +14,23 @@ namespace VerificarApi.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IUserService _userService;
+        private readonly IRecaptchaService _recaptchaService;
 
-        public AuthController(IAuthService authService, IUserService userService)
+        public AuthController(IAuthService authService, IUserService userService, IRecaptchaService recaptchaService)
         {
             _authService = authService;
             _userService = userService;
+            _recaptchaService = recaptchaService;
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
+            var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var ok = await _recaptchaService.VerificarAsync(dto.RecaptchaToken, remoteIp, "register");
+            if (!ok)
+                return BadRequest(new { mensagem = "Falha na verificação de segurança. Recarregue a página e tente novamente." });
+
             try
             {
                 var result = await _authService.RegisterAsync(dto);

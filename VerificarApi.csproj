@@ -19,7 +19,7 @@
 
   <!-- Builda o front (VerifiCarFront) e copia o resultado para wwwroot, para que
        a API sirva o React em produção a partir da mesma origem (sem CORS/proxy). -->
-  <Target Name="BuildFrontend" BeforeTargets="Publish">
+  <Target Name="BuildFrontend" BeforeTargets="Build">
     <Exec Command="npm install" WorkingDirectory="../VerifiCarFront" />
     <Exec Command="npm run build" WorkingDirectory="../VerifiCarFront" />
     <ItemGroup>

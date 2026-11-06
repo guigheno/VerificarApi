@@ -20,5 +20,7 @@ namespace VerificarApi.Dtos.Auth
 
         [MaxLength(64)]
         public string? CodigoLink { get; set; }
+
+        public string? RecaptchaToken { get; set; }
     }
 }
